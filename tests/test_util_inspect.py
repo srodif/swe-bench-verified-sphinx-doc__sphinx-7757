@@ -6,6 +6,7 @@
 
     :copyright: Copyright 2007-2020 by the Sphinx team, see AUTHORS.
     :license: BSD, see LICENSE for details.
+    
 """
 
 import _testcapi
@@ -339,6 +340,31 @@ def test_signature_from_str_positionaly_only_args():
     assert list(sig.parameters.keys()) == ['a', 'b']
     assert sig.parameters['a'].kind == Parameter.POSITIONAL_ONLY
     assert sig.parameters['b'].kind == Parameter.POSITIONAL_OR_KEYWORD
+
+
+@pytest.mark.skipif(sys.version_info < (3, 8),
+                    reason='python-3.8 or above is required')
+def test_signature_from_str_positionaly_only_args_with_defaults():
+    # Test case for issue: positional-only arguments with default values
+    sig = inspect.signature_from_str('(a, b=0, /, c=1)')
+    
+    params = list(sig.parameters.values())
+    
+    # Check parameter a (no default)
+    assert params[0].name == 'a'
+    assert params[0].kind == Parameter.POSITIONAL_ONLY
+    assert params[0].default == Parameter.empty
+    
+    # Check parameter b (should have default)
+    assert params[1].name == 'b'
+    assert params[1].kind == Parameter.POSITIONAL_ONLY
+    assert params[1].default == '0'  # ast_unparse returns string representation
+    assert params[1].default != Parameter.empty
+    
+    # Check parameter c (should have default)
+    assert params[2].name == 'c'
+    assert params[2].kind == Parameter.POSITIONAL_OR_KEYWORD
+    assert params[2].default == '1'
 
 
 def test_signature_from_str_invalid():
