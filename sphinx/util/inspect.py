@@ -520,15 +520,35 @@ def signature_from_str(signature: str) -> inspect.Signature:
     args = definition.args
     params = []
 
+    # Calculate total number of positional args (both posonly and regular)
+    posonlyargs = getattr(args, "posonlyargs", [])
+    total_positional_args = len(posonlyargs) + len(args.args)
+    
+    # Calculate which args have defaults (defaults apply to the rightmost args)
+    num_defaults = len(args.defaults)
+    args_without_defaults = total_positional_args - num_defaults
+    
+    # Process positional-only arguments
     if hasattr(args, "posonlyargs"):
-        for arg in args.posonlyargs:  # type: ignore
+        for i, arg in enumerate(args.posonlyargs):  # type: ignore
+            # Check if this positional-only arg has a default value
+            if i >= args_without_defaults:
+                default_index = i - args_without_defaults
+                default = ast_unparse(args.defaults[default_index])
+            else:
+                default = Parameter.empty
+                
             annotation = ast_unparse(arg.annotation) or Parameter.empty
             params.append(Parameter(arg.arg, Parameter.POSITIONAL_ONLY,
-                                    annotation=annotation))
+                                    default=default, annotation=annotation))
 
+    # Process regular positional arguments  
     for i, arg in enumerate(args.args):
-        if len(args.args) - i <= len(args.defaults):
-            default = ast_unparse(args.defaults[-len(args.args) + i])
+        # Adjust index to account for positional-only args
+        overall_index = len(posonlyargs) + i
+        if overall_index >= args_without_defaults:
+            default_index = overall_index - args_without_defaults
+            default = ast_unparse(args.defaults[default_index])
         else:
             default = Parameter.empty
 
